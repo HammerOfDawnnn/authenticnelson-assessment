@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1" />
-<title>IBE Companion Assessment</title>
+<title>AYA Questionnaire • Authentic Nelson</title>
 <style>
   :root{
     --bg:#070707;
@@ -95,7 +95,7 @@
 <body>
 <div class="wrap">
   <div class="bar">
-    <div class="left" id="progress">0/12 answered</div>
+    <div class="left" id="progress">0/10 answered</div>
     <div class="pill" id="statusPill">In progress</div>
 
     <button class="ghost" id="resetBtn" type="button">Reset</button>
@@ -135,154 +135,28 @@
 
 <script>
 /* ============================================================
-FSM TAKER (single pass)
-- Captures integrity telemetry:
-  - per-question answer time
-  - total active time
-  - option position selected
-  - answer changes
-  - very fast counts thresholds
+AYA TAKER (3 Levels)
+- User selects Level 1/2/3 (language matures, not judgment)
+- 10 questions, A–D scale maps to 1–4 points
 - Generates:
-  - plain English Summary (only)
+  - brief summary (score + tier + coaching focus)
   - Result Code payload for mentor decoder
 ============================================================ */
 
-const BUILD = "IBE_COMPANION_TAKER_v1.0";
-const STORAGE_KEY = "FSM_TAKER_V4_STATE";
+const BUILD = "AYA_TAKER_v1.0";
+const STORAGE_KEY = "AYA_TAKER_STATE_V1";
 
-// ---- Question bank (12) ----
-const QUESTIONS = [
-  {
-    key:"q1",
-    axis:"Isolation Reflex",
-    prompt:"When isolation hits hard (unplanned and total), you usually:",
-    options:[
-      "Contain it and get razor-focused\u2014solitude sharpens me.",
-      "Channel it into motion\u2014work, tasks, movement, anything.",
-      "Reach out\u2014tell someone the truth instead of drowning alone.",
-      "Dissect it\u2014loop the memory/meaning until it makes sense."
-    ]
-  },
-  {
-    key:"q2",
-    axis:"Emotional Regulation",
-    prompt:"When emotion starts getting too loud, your first move is:",
-    options:[
-      "Clamp down and stay functional\u2014no leaks.",
-      "Redirect the energy\u2014lift, build, clean, fix.",
-      "Name it out loud\u2014even if it costs pride.",
-      "Translate it into logic\u2014what is this feeling trying to say?"
-    ]
-  },
-  {
-    key:"q3",
-    axis:"Identity Under Pressure",
-    prompt:"When pressure threatens your identity, you tend to:",
-    options:[
-      "Double down\u2014hold the line and keep control.",
-      "Shift into performance\u2014do what works and keep it moving.",
-      "Tell the truth about what you need, even if it\u2019s uncomfortable.",
-      "Step back and reframe\u2014who am I becoming through this?"
-    ]
-  },
-  {
-    key:"q4",
-    axis:"Trust Breakdown Pattern",
-    prompt:"When someone breaks your trust, your reflex is to:",
-    options:[
-      "Close the door\u2014access revoked.",
-      "Move on and stay busy\u2014no time to bleed.",
-      "Confront it directly\u2014clear it or cut it clean.",
-      "Try to understand the pattern\u2014why did it happen, and what does it reveal?"
-    ]
-  },
-  {
-    key:"q5",
-    axis:"Breaking Point Edge",
-    prompt:"When you feel close to breaking a promise to yourself, you usually:",
-    options:[
-      "Get hard on yourself\u2014discipline through consequence.",
-      "Outwork the urge\u2014replace the impulse with action.",
-      "Pull in accountability\u2014say it before it owns you.",
-      "Interrogate the trigger\u2014what need is underneath this?"
-    ]
-  },
-  {
-    key:"q6",
-    axis:"Boundary Enforcement",
-    prompt:"When someone crosses a line, you tend to:",
-    options:[
-      "Enforce immediately\u2014no debate.",
-      "Create distance through action\u2014remove yourself, change access, move forward.",
-      "State the boundary clearly\u2014explain once, then hold it.",
-      "Analyze what you allowed\u2014what loophole did they walk through?"
-    ]
-  },
-  {
-    key:"q7",
-    axis:"Strength Code",
-    prompt:"Being \u2018strong\u2019 mostly means you:",
-    options:[
-      "Maintain control and composure no matter what.",
-      "Show up and execute\u2014do the work even when it hurts.",
-      "Protect and provide\u2014people feel safer because you\u2019re there.",
-      "Live in clarity\u2014see what\u2019s true and act from it."
-    ]
-  },
-  {
-    key:"q8",
-    axis:"Attachment Reflex",
-    prompt:"When someone gets emotionally close, you usually:",
-    options:[
-      "Keep it controlled\u2014let them in slowly, on your terms.",
-      "Keep moving\u2014closeness is fine, but don\u2019t slow my mission.",
-      "Lean in\u2014connection is fuel, not danger.",
-      "Study them\u2014and yourself\u2014before you trust the bond."
-    ]
-  },
-  {
-    key:"q9",
-    axis:"Justice vs Release",
-    prompt:"When you\u2019re deeply hurt, you tend to:",
-    options:[
-      "Cut them off\u2014no access, no explanation.",
-      "Convert it into forward motion\u2014build, win, outgrow it.",
-      "Talk it out if possible\u2014close it clean, say the real thing.",
-      "Let it go internally\u2014release the poison without reopening the door."
-    ]
-  },
-  {
-    key:"q10",
-    axis:"Purpose Orientation",
-    prompt:"When life feels meaningless, you usually:",
-    options:[
-      "Impose structure\u2014routines, standards, non-negotiables.",
-      "Move\u2014purpose follows momentum.",
-      "Serve someone\u2014helping restores meaning.",
-      "Sit with it\u2014meaning emerges when you listen long enough."
-    ]
-  },
-];
+const LEVELS = {"LEVEL_1_BASE": [{"key": "q1", "prompt": "When I spoke today, how truthful was I?", "options": ["I knowingly altered, avoided, or distorted the truth to protect comfort, avoid tension, or maintain an image.", "I shared a partial version of the truth, filtering or softening it to manage reactions.", "I told the factual truth, though with hesitation, delay, or internal resistance.", "I spoke the truth clearly and calmly, without manipulation, concealment, or justification."]}, {"key": "q2", "prompt": "Did I withhold anything important to avoid consequences?", "options": ["I intentionally withheld key information to protect myself from discomfort or accountability.", "I minimized, postponed, or partially disclosed what mattered.", "I shared most of what was necessary, though not fully or confidently.", "I shared what was necessary and relevant, even when it created discomfort."]}, {"key": "q3", "prompt": "Was my tone aligned with how I actually felt?", "options": ["My tone was performative and did not reflect my internal state.", "My tone was controlled to fit expectations rather than truth.", "My tone was mostly honest, though restrained.", "My tone accurately reflected my internal state while remaining respectful."]}, {"key": "q4", "prompt": "Did my emotional responses come from sincerity?", "options": ["My response was strategic or designed to influence perception.", "My response was shaped by what felt socially acceptable.", "My response was sincere but limited by caution.", "My response was fully sincere, present, and grounded."]}, {"key": "q5", "prompt": "Was I present as myself or playing a role?", "options": ["I adopted a role to maintain safety, approval, or status.", "I adjusted who I was depending on the environment.", "I showed up mostly as myself, with minor self-editing.", "I showed up fully as myself, without distortion."]}, {"key": "q6", "prompt": "Did my decisions align with my values?", "options": ["I chose convenience over values.", "I compromised my values for short-term ease.", "I honored my values, though it felt uncomfortable.", "I acted in full alignment with my values."]}, {"key": "q7", "prompt": "Did my actions match my words?", "options": ["My actions contradicted what I said.", "My actions partially supported my words.", "My actions aligned, though inconsistently.", "My actions clearly reinforced my words."]}, {"key": "q8", "prompt": "Did I choose what was right for me or easiest to explain?", "options": ["I chose what others would accept.", "I chose what avoided conflict.", "I chose what felt right, with hesitation.", "I chose what was right for me, without apology."]}, {"key": "q9", "prompt": "Where was I today?", "options": ["I noticed clear misalignment between what I felt, said, and did.", "I was honest in facts but not fully genuine or authentic.", "I was genuine internally but inconsistent in action.", "I was aligned—honest, genuine, and authentic."]}, {"key": "q10", "prompt": "Would I respect myself if today repeated?", "options": ["No—repeating today would erode my self-respect.", "Some days yes, some days no.", "Yes, though growth is still required.", "Yes—I would trust and respect that version of myself."]}], "LEVEL_2_INTERMEDIATE": [{"key": "q1", "prompt": "When I spoke today, how aligned was my truth?", "options": ["I distorted or avoided truth to protect identity or outcome.", "I filtered truth to manage acceptance or perception.", "I expressed truth with caution or restraint.", "I expressed truth fully, without distortion or fear."]}, {"key": "q2", "prompt": "What motivated my silence, if any?", "options": ["Self-protection or fear of consequence.", "Image management or timing control.", "Discernment, though influenced by discomfort.", "Integrity and responsibility to truth."]}, {"key": "q3", "prompt": "Did my tone reflect my internal state?", "options": ["No—it was a mask.", "It was regulated for the environment.", "It was mostly congruent, with minor filtering.", "It was fully congruent and emotionally honest."]}, {"key": "q4", "prompt": "Where did my emotional responses originate?", "options": ["Strategy or self-preservation.", "External expectation.", "Sincerity with guarded expression.", "Grounded self-awareness and presence."]}, {"key": "q5", "prompt": "How consistently did I show up as myself?", "options": ["I performed a version of myself.", "I adapted myself to the room.", "I remained myself with boundaries.", "I remained myself without self-editing."]}, {"key": "q6", "prompt": "What governed my decisions?", "options": ["Ease and relief.", "Short-term comfort.", "Values, though with internal resistance.", "Values without compromise."]}, {"key": "q7", "prompt": "How congruent were my actions and words?", "options": ["They were misaligned.", "They were partially aligned.", "They aligned inconsistently.", "They aligned consistently and clearly."]}, {"key": "q8", "prompt": "What guided my choices?", "options": ["Approval and acceptance.", "Conflict avoidance.", "Inner truth with hesitation.", "Inner truth without justification."]}, {"key": "q9", "prompt": "Where did I land today?", "options": ["Fragmented alignment.", "Honesty without genuineness.", "Genuineness without consistency.", "Integrated alignment."]}, {"key": "q10", "prompt": "Would today’s version of me earn my trust?", "options": ["No.", "Occasionally.", "Mostly.", "Fully and consistently."]}], "LEVEL_3_ADVANCED": [{"key": "q1", "prompt": "When truth required courage, how did I respond?", "options": ["I avoided it.", "I diluted it.", "I expressed it carefully.", "I embodied it fully."]}, {"key": "q2", "prompt": "Was silence used as protection or principle?", "options": ["Protection from consequence.", "Preservation of image.", "Discernment with hesitation.", "Integrity rooted in values."]}, {"key": "q3", "prompt": "Did my tone honor my truth?", "options": ["No—masking occurred.", "Partial honesty.", "Mostly congruent.", "Fully congruent and grounded."]}, {"key": "q4", "prompt": "Were my emotions expressed with integrity?", "options": ["They were performative.", "They were externally shaped.", "They were internally honest but guarded.", "They were fully integrated and embodied."]}, {"key": "q5", "prompt": "Did I live as who I am—not who was required?", "options": ["I became who was needed.", "I adjusted to survive.", "I remained myself with limits.", "I remained myself without compromise."]}, {"key": "q6", "prompt": "Were my values non-negotiable today?", "options": ["No—they were conditional.", "Sometimes—they flexed under pressure.", "Mostly—they held with effort.", "Always—they governed my choices."]}, {"key": "q7", "prompt": "Did my actions prove my words?", "options": ["No—they contradicted them.", "In part—but not consistently.", "Inconsistently—but improving.", "Completely and repeatedly."]}, {"key": "q8", "prompt": "Did I choose alignment over explanation?", "options": ["No—explanation came first.", "Occasionally—when safe.", "With hesitation and internal debate.", "Without apology or defense."]}, {"key": "q9", "prompt": "How embodied was my authenticity today?", "options": ["Conceptual only.", "Situational.", "Practiced but not fully lived.", "Fully embodied."]}, {"key": "q10", "prompt": "If today became my identity, would I respect it?", "options": ["No—I would lose trust in myself.", "Sometimes—I would question it.", "Yes—with awareness of growth ahead.", "Yes—with full trust, respect, and ownership."]}]};
 
-// Hidden A/B/C/D mapping (mentor uses; taker never sees labels)
-QUESTIONS.forEach(q=>{
-  q.map = {
-    [q.options[0]]:"A",
-    [q.options[1]]:"B",
-    [q.options[2]]:"C",
-    [q.options[3]]:"D"
-  };
-});
-
-const CODE_LABEL = {
-  A:"Containment / Control",
-  B:"Action / Channeling",
-  C:"Connection / Exposure",
-  D:"Analysis / Meaning-Making"
+const LEVEL_META = {
+  "LEVEL_1_BASE": { name: "Level 1 \u2014 Base (Honesty Awareness)" },
+  "LEVEL_2_INTERMEDIATE": { name: "Level 2 \u2014 Intermediate (Genuineness Integration)" },
+  "LEVEL_3_ADVANCED": { name: "Level 3 \u2014 Advanced (Authenticity Embodiment)" },
 };
-const SHADOW_OF = {A:"A",B:"B",C:"A",D:"D"};
 
-// ---- RNG / Shuffle ----
+const TIERS = [[10, 19, "HONEST (FOUNDATIONAL)", "Where am I editing myself to stay safe?"], [20, 29, "GENUINE (INTEGRATED)", "What am I feeling that I’m not yet living?"], [30, 36, "AUTHENTIC (EMBODIED)", "Where does pressure test my integrity?"], [37, 40, "ELITE AUTHENTICITY", "How do I protect alignment as influence increases?"]];
+
+// ---- RNG / Shuffle (kept for light randomization) ----
 function mulberry32(a){
   return function(){
     let t=a+=0x6D2B79F5;
@@ -298,14 +172,6 @@ function shuffle(arr,rng){
     [a[i],a[j]]=[a[j],a[i]];
   }
   return a;
-}
-function hashKey(k){
-  let h=2166136261;
-  for(let i=0;i<k.length;i++){
-    h ^= k.charCodeAt(i);
-    h = Math.imul(h, 16777619);
-  }
-  return (h>>>0);
 }
 
 // ---- Base64url helpers ----
@@ -325,12 +191,14 @@ function b64urlDecode(code){
 // ---- State ----
 let seed = null;
 let rng = null;
+let levelKey = null;
+let QUESTIONS = [];
 let ORDER = [];
 let answers = {};            // key -> option text
-let firstSeenAt = {};        // key -> first render ts
-let lastAnswerAt = {};       // key -> last answer ts
-let timeSpentMs = {};        // key -> accumulated ms
-let chosenPos = {};          // key -> position 1-4 chosen
+let firstSeenAt = {};
+let lastAnswerAt = {};
+let timeSpentMs = {};
+let chosenPos = {};
 let answerChanges = 0;
 let selectionLog = [];
 let startedAt = Date.now();
@@ -352,7 +220,7 @@ const closeSummary = document.getElementById("closeSummary");
 // ---- Persistence ----
 function saveState(){
   const state = {
-    seed, answers, firstSeenAt, lastAnswerAt, timeSpentMs, chosenPos,
+    seed, levelKey, answers, firstSeenAt, lastAnswerAt, timeSpentMs, chosenPos,
     answerChanges, selectionLog, startedAt, finishedAt
   };
   localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
@@ -363,6 +231,7 @@ function loadState(){
     if(!raw) return false;
     const s = JSON.parse(raw);
     seed = s.seed ?? null;
+    levelKey = s.levelKey ?? null;
     answers = s.answers || {};
     firstSeenAt = s.firstSeenAt || {};
     lastAnswerAt = s.lastAnswerAt || {};
@@ -373,42 +242,93 @@ function loadState(){
     startedAt = Number(s.startedAt || Date.now());
     finishedAt = s.finishedAt ?? null;
     return true;
-  }catch(e){
-    return false;
-  }
+  }catch(e){ return false; }
 }
-function wipeSave(){
-  localStorage.removeItem(STORAGE_KEY);
-}
+function wipeSave(){ localStorage.removeItem(STORAGE_KEY); }
 
-// ---- Initialize order ----
-function initOrder(){
-  if(seed == null){
-    seed = Date.now() ^ (Math.random()*1e9|0);
-  }
-  rng = mulberry32(seed);
-  // shuffle questions deterministically
-  ORDER = shuffle(QUESTIONS, rng);
-}
-function ensureFirstSeen(){
-  const now = Date.now();
-  ORDER.forEach(q=>{
-    if(firstSeenAt[q.key] == null) firstSeenAt[q.key] = now;
+// ---- Level gate ----
+function openLevelGate(){
+  const back = document.createElement("div");
+  back.className = "modalBack";
+  back.style.display = "flex";
+  back.id = "levelGateBack";
+  back.innerHTML = `
+    <div class="modal">
+      <div class="modalHead">
+        <div class="modalTitle">Choose a level</div>
+      </div>
+      <pre style="margin:0">
+Each level matures the language, not the judgment.
+
+Pick the level that matches where you are today.
+      </pre>
+      <div style="height:12px"></div>
+      <div class="row" style="gap:10px">
+        <button class="primary" data-k="LEVEL_1_BASE">Level 1 — Base</button>
+        <button class="primary" data-k="LEVEL_2_INTERMEDIATE">Level 2 — Intermediate</button>
+        <button class="primary" data-k="LEVEL_3_ADVANCED">Level 3 — Advanced</button>
+      </div>
+      <div style="height:10px"></div>
+      <div class="pill">A=1 • B=2 • C=3 • D=4</div>
+    </div>`;
+  document.body.appendChild(back);
+  back.querySelectorAll("button[data-k]").forEach(btn=>{
+    btn.addEventListener("click", ()=>{
+      levelKey = btn.getAttribute("data-k");
+      initForLevel(levelKey);
+      saveState();
+      back.remove();
+      render();
+    });
   });
 }
 
-// ---- Render ----
-function answeredCount(){
-  return ORDER.filter(q=>answers[q.key]).length;
+// ---- Init ----
+function initForLevel(k){
+  QUESTIONS = (LEVELS[k] || []).map((q, idx)=>{
+    const key = q.key || ("q"+(idx+1));
+    const options = q.options.slice(0,4);
+    const map = {
+      [options[0]]:"A",
+      [options[1]]:"B",
+      [options[2]]:"C",
+      [options[3]]:"D"
+    };
+    return { key, prompt:q.prompt, options, map };
+  });
+
+  // init order deterministically but stable across reload
+  if(seed == null) seed = Date.now() ^ (Math.random()*1e9|0);
+  rng = mulberry32(seed);
+  ORDER = shuffle(QUESTIONS, rng);
+
+  // ensure firstSeenAt keys exist
+  const now = Date.now();
+  ORDER.forEach(q=>{ if(firstSeenAt[q.key] == null) firstSeenAt[q.key] = now; });
 }
-function allAnswered(){
-  return answeredCount() === ORDER.length;
+
+function answeredCount(){ return ORDER.filter(q=>answers[q.key]).length; }
+function allAnswered(){ return answeredCount() === ORDER.length; }
+
+function ensureFirstSeen(){
+  const now = Date.now();
+  ORDER.forEach(q=>{ if(firstSeenAt[q.key] == null) firstSeenAt[q.key] = now; });
 }
+
 function render(){
+  if(!levelKey){
+    progressEl.textContent = `0/10 answered`;
+    statusPill.textContent = "Choose level";
+    finishBtn.disabled = true;
+    app.innerHTML = "";
+    openLevelGate();
+    return;
+  }
+
   ensureFirstSeen();
 
   const done = answeredCount();
-  progressEl.textContent = `${done}/${ORDER.length} answered`;
+  progressEl.textContent = `${done}/${ORDER.length} answered • ${LEVEL_META[levelKey]?.name || levelKey}`;
   statusPill.textContent = allAnswered() ? "Ready" : "In progress";
   finishBtn.disabled = !allAnswered();
 
@@ -419,9 +339,7 @@ function render(){
 
     const head = document.createElement("div");
     head.className = "k";
-    head.innerHTML = `
-      <div class="qnum">Q${idx+1}</div>
-     `;
+    head.innerHTML = `<div class="qnum">Q${idx+1}</div>`;
     card.appendChild(head);
 
     const prompt = document.createElement("div");
@@ -445,25 +363,19 @@ function render(){
   });
 }
 
-// ---- Selection logic + timing ----
 function selectOption(q, optText, pos){
   const now = Date.now();
 
-  // accumulate time since last answer interaction for this question
   const last = lastAnswerAt[q.key] ?? firstSeenAt[q.key] ?? now;
   const delta = Math.max(0, now - last);
   timeSpentMs[q.key] = (timeSpentMs[q.key] || 0) + delta;
 
-  // count changes (changing to a different option)
-  if(answers[q.key] && answers[q.key] !== optText){
-    answerChanges++;
-  }
+  if(answers[q.key] && answers[q.key] !== optText) answerChanges++;
 
   answers[q.key] = optText;
   chosenPos[q.key] = pos;
   lastAnswerAt[q.key] = now;
 
-  // minimal selection log (keep last 200)
   selectionLog.push({ t: now, k: q.key, p: pos, ch: answerChanges });
   if(selectionLog.length > 220) selectionLog = selectionLog.slice(-220);
 
@@ -471,131 +383,47 @@ function selectOption(q, optText, pos){
   render();
 }
 
-// ---- Profile computation ----
-function computePattern(codes){
-  const counts = {A:0,B:0,C:0,D:0};
-  (codes||[]).forEach(c=>{ if(counts[c]!==undefined) counts[c]++; });
-
-  const sorted = Object.entries(counts).sort((a,b)=>b[1]-a[1]);
-  const primary = sorted[0][0];
-  const secondary = sorted[1][0];
-  const shadow = SHADOW_OF[primary] || "C";
-
-  const groupName = (p,s)=>{
-    const pair = `${p}${s}`;
-    const map = {
-      "AB":"The Disciplined Engine",
-      "AC":"The Protector",
-      "AD":"The Architect",
-      "BA":"The Hard Reset",
-      "BC":"The Rally Point",
-      "BD":"The Strategist",
-      "CA":"The Guarded Truth",
-      "CB":"The Workhorse Heart",
-      "CD":"The Witness",
-      "DA":"The Iron Philosopher",
-      "DB":"The Quiet Builder",
-      "DC":"The Truth Teller",
-    };
-    return map[pair] || `${CODE_LABEL[p]} / ${CODE_LABEL[s]}`;
-  };
-
-  const growth = {
-    A:"Upgrade: keep your standard, but soften the grip. Control with choice, not fear.",
-    B:"Upgrade: keep moving, but stop using motion to outrun what you feel.",
-    C:"Upgrade: keep your honesty, but don’t make connection your only regulator—build self-trust too.",
-    D:"Upgrade: keep your insight, but timebox the loop—meaning must convert into action."
-  }[primary] || "Upgrade: pick one small adjustment and repeat it for a week.";
-
-
-  const watch = {
-    A:"Watch for: rigidity, emotional shutdown, and ‘my way or nothing’ under stress.",
-    B:"Watch for: overdrive, burnout, and distraction dressed up as discipline.",
-    C:"Watch for: dependence on external validation or reassurance when you’re activated.",
-    D:"Watch for: analysis paralysis—understanding becoming avoidance."
-  }[primary] || "Watch for: drift under fatigue.";
-
-
-  return {
-    counts, primary, secondary, shadow,
-    group: groupName(primary,secondary),
-    growth, watch
-  };
+function computeScore(){
+  // score is sum of selected option positions (A=1..D=4) in display order
+  return ORDER.reduce((s,q)=>{
+    const pos = chosenPos[q.key] || 0;
+    return s + pos;
+  }, 0);
 }
 
-function computeProfile(){
-  // include selected codes A/B/C/D in ORDER
-  const codes = ORDER.map(q=>{
-    const sel = answers[q.key];
-    return sel ? q.map[sel] : null;
-  });
-  const p = computePattern(codes);
-  return { ...p, codes };
+function tierFor(score){
+  for(const [min,max,label,focus] of TIERS){
+    if(score>=min && score<=max) return {min,max,label,focus};
+  }
+  return {min:null,max:null,label:"UNSCORED",focus:""};
 }
 
-// ---- Summary (taker only) ----
-function buildSummaryPlain(p){
-  const groupLine = `You landed in: ${p.group}.`;
-  const defaultLine = {
-    A:"Your default is containment and control: you stabilize from the inside out.",
-    B:"Your default is action and channeling: you turn intensity into motion.",
-    C:"Your default is connection and exposure: you regulate through truth with others.",
-    D:"Your default is analysis and meaning-making: you regulate through understanding."
-  }[p.primary];
-
-
-  const tradeoffLine = {
-    A:"The tradeoff: control can become shutdown—strength turns into distance.",
-    B:"The tradeoff: motion can become avoidance—work turns into anesthesia.",
-    C:"The tradeoff: connection can become dependence—your nervous system needs more than one outlet.",
-    D:"The tradeoff: insight can become a loop—clarity without motion becomes a cage."
-  }[p.primary];
-
-
-  const underLoadLine = {
-    A:"Under heavy load, you can clamp down harder than you intend and go emotionally quiet.",
-    B:"Under heavy load, you can sprint—more intensity, less presence—until you burn out.",
-    C:"Under heavy load, you can retreat into self-protection and stop asking for what you need.",
-    D:"Under heavy load, you can get stuck in analysis and delay the hard move."
-  }[p.shadow];
-
-
-  const mix = `Today’s pattern mix: A:${p.counts.A}  B:${p.counts.B}  C:${p.counts.C}  D:${p.counts.D}.`;
-
-  return [
-    "Summary",
-    "",
-    groupLine,
-    "",
-    mix,
-    "",
-    defaultLine,
-    tradeoffLine,
-    "",
-    underLoadLine,
-    "",
-    "What helps (simple and real):",
-    p.growth
-  ].join("\n");
+function buildSummaryPlain(){
+  const score = computeScore();
+  const tier = tierFor(score);
+  const lines = [];
+  lines.push("Summary");
+  lines.push("");
+  lines.push(LEVEL_META[levelKey]?.name || levelKey);
+  lines.push(`Score: ${score} / 40`);
+  lines.push(`Tier: ${tier.label}`);
+  lines.push("");
+  lines.push("Coaching Focus:");
+  lines.push(`“${tier.focus}”`);
+  lines.push("");
+  lines.push("Mentor note: share the Result Code below to unlock the full breakdown.");
+  return lines.join("\n");
 }
 
-// ---- Telemetry packaging for mentor ----
 function finalizePayload(){
   finishedAt = Date.now();
 
-  // compute per-question times in display order (ms)
   const perQ = ORDER.map(q=>{
     const ms = timeSpentMs[q.key] || 0;
-    return {
-      key: q.key,
-      pos: chosenPos[q.key] || null,
-      ms
-    };
+    return { key: q.key, pos: chosenPos[q.key] || null, ms };
   });
-
   const totalActiveMs = perQ.reduce((s,x)=>s + (x.ms||0), 0);
 
-  // include selected codes A/B/C/D in ORDER
   const codes = ORDER.map(q=>{
     const sel = answers[q.key];
     return sel ? q.map[sel] : null;
@@ -604,46 +432,29 @@ function finalizePayload(){
   const payload = {
     v: BUILD,
     seed,
-    // display order
+    levelKey,
+    score: computeScore(),
+    tier: tierFor(computeScore()),
     orderKeys: ORDER.map(q=>q.key),
-    // selected answers (raw text)
     answers,
-    // computed A/B/C/D codes (mentor uses for pattern)
     codes,
-    // integrity telemetry
     telem: {
       startedAt,
       finishedAt,
       totalActiveMs,
-      perQ,                // key/pos/ms
+      perQ,
       answerChanges,
-      selectionEvents: selectionLog.slice(-200) // last 200 events is enough
+      selectionEvents: selectionLog.slice(-200)
     }
   };
-
   return payload;
 }
 
-// ---- Modal / export ----
+// ---- Modal ----
 function openSummary(){ summaryBack.style.display="flex"; }
 function closeSummaryModal(){ summaryBack.style.display="none"; }
 closeSummary.addEventListener("click", closeSummaryModal);
 summaryBack.addEventListener("click", (e)=>{ if(e.target===summaryBack) closeSummaryModal(); });
-
-function escapeHtml(str){
-  return str.replaceAll("&","&amp;").replaceAll("<","&lt;").replaceAll(">","&gt;")
-            .replaceAll('"',"&quot;").replaceAll("'","&#039;");
-}
-function downloadBlob(filename, content, mime){
-  const blob = new Blob([content], {type:mime});
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = filename;
-  document.body.appendChild(a);
-  a.click();
-  setTimeout(()=>{ URL.revokeObjectURL(url); a.remove(); }, 250);
-}
 
 // ---- Buttons ----
 resetBtn.addEventListener("click", ()=>{
@@ -659,6 +470,7 @@ resetBtn.addEventListener("click", ()=>{
   finishedAt = null;
   summaryTextEl.textContent = "";
   resultCodeEl.value = "";
+  initForLevel(levelKey);
   saveState();
   render();
 });
@@ -666,6 +478,8 @@ resetBtn.addEventListener("click", ()=>{
 wipeBtn.addEventListener("click", ()=>{
   if(!confirm("Wipe saved state on this device?")) return;
   wipeSave();
+  seed = null;
+  levelKey = null;
   answers = {};
   firstSeenAt = {};
   lastAnswerAt = {};
@@ -681,12 +495,8 @@ wipeBtn.addEventListener("click", ()=>{
 });
 
 finishBtn.addEventListener("click", ()=>{
-  if(!allAnswered()){
-    alert("Answer all questions first.");
-    return;
-  }
-  const prof = computeProfile();
-  const summary = buildSummaryPlain(prof);
+  if(!allAnswered()){ alert("Answer all questions first."); return; }
+  const summary = buildSummaryPlain();
   summaryTextEl.textContent = summary;
 
   const payload = finalizePayload();
@@ -710,8 +520,7 @@ copyCodeBtn.addEventListener("click", async ()=>{
 
 // ---- Boot ----
 const loaded = loadState();
-initOrder();
-ensureFirstSeen();
+if(levelKey) initForLevel(levelKey);
 render();
 </script>
 </body>
