@@ -1,8 +1,8 @@
 <!doctype html>
 <html lang="en">
 <head>
-<meta charset="utf-8"/>
-<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
 <title>AYA Questionnaire — Begin</title>
 <style>
   :root {
@@ -10,8 +10,8 @@
     --panel: rgba(255,255,255,.05);
     --edge: rgba(255,255,255,.12);
     --text: #e8e8e8;
-    --muted:#b8b8b8;
-    --accent:#b87333;
+    --muted: #b8b8b8;
+    --accent: #b87333;
   }
   *{box-sizing:border-box}
   body{margin:0;background:var(--bg);color:var(--text);font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;}
@@ -38,11 +38,11 @@
   .opt input{margin-top:4px}
   .opt span{color:var(--text);font-size:14px;line-height:1.35}
   .muted{color:var(--muted)}
-  .codebox{width:100%;min-height:88px;border-radius:14px;border:1px solid var(--edge);background:rgba(0,0,0,.25);color:var(--text);padding:12px;font-family:ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;}
-  .row{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
   .hidden{display:none!important}
   .hr{height:1px;background:rgba(255,255,255,.08);margin:16px 0}
   .footnote{font-size:12px;color:var(--muted)}
+  .codebox{width:100%;min-height:88px;border-radius:14px;border:1px solid var(--edge);background:rgba(0,0,0,.25);color:var(--text);padding:12px;font-family:ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;}
+  .row{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
 </style>
 </head>
 <body>
@@ -53,13 +53,12 @@
     </div>
     <div class="row">
       <button class="btn" id="resetBtn" title="Clears answers for the current level">Reset</button>
-      <button class="btn" id="finishBtn">Finish</button>
       <button class="btn danger" id="wipeBtn" title="Clears all saved assessment data on this device">Wipe Device Save</button>
     </div>
   </div>
 
   <h1>AYA Questionnaire</h1>
-  <p class="lead">Select a level. Complete it. You’ll get a brief summary and a mentor code.</p>
+  <p class="lead">Select a level. Complete it. You’ll get a brief summary and the mentor code will be emailed.</p>
 
   <div id="levelPicker" class="card">
     <div class="grid" id="levels"></div>
@@ -78,29 +77,22 @@
     </div>
     <div class="hr"></div>
     <div id="questions"></div>
+    <div class="row" style="justify-content:flex-end;margin-top:12px;">
+      <button class="btn accent" id="submitBtn">Submit</button>
+    </div>
   </div>
 
   <div id="resultsArea" class="card hidden">
     <div style="font-weight:900;font-size:18px;">Complete.</div>
-    <p class="muted" style="margin:8px 0 14px;">This is your brief summary. Your mentor code is below.</p>
-
+    <p class="muted" style="margin:8px 0 14px;">Summary of selections (mentor code sent via email draft).</p>
     <div id="brief" class="muted"></div>
-
-    <div class="hr"></div>
-    <div style="font-weight:800;margin-bottom:8px;">Mentor Code</div>
-    <textarea id="codeOut" class="codebox" readonly></textarea>
-    <div class="row" style="margin-top:10px;">
-      <button class="btn" id="copyBtn">Copy Code</button>
-      <a class="btn accent" id="mentorLink" href="mentor.html" target="_blank" rel="noopener">Open Mentor Page</a>
-    </div>
-    <div class="footnote" style="margin-top:10px;">
-      The mentor code contains your selected answers (no name unless you add it yourself).
-    </div>
   </div>
 </div>
 
 <script>
-  // Level definitions with axis/focus metadata
+const SUBMIT_EMAIL = "mentor@authenticnelson.com";
+const STORAGE_KEY = "aya_assessment_v1";
+
 const LEVEL_BANK = {
   "LEVEL 1 — BASE": {
     axis: "Honesty Awareness | Conscious Recognition",
@@ -152,8 +144,6 @@ const LEVEL_BANK = {
   }
 };
 
-const STORAGE_KEY = "aya_assessment_v1";
-
 function loadState() {
   try {
     return JSON.parse(localStorage.getItem(STORAGE_KEY) || "{}");
@@ -168,60 +158,35 @@ function wipeAll() {
   localStorage.removeItem(STORAGE_KEY);
 }
 
-function setStatus(txt) {
-  document.getElementById("status").textContent = txt;
+function escapeHtml(s) {
+  return (s||"").replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;"}[c]));
 }
 
 let activeLevelId = null;
 
-// Build the LEVELS array the UI expects (unique IDs + q1..q10 keys)
 const LEVELS = [
   {
     id: "LEVEL_1_BASE",
     label: "Level 1 — Base",
-    description: `${LEVEL_BANK["LEVEL 1 — BASE"].axis}  Focus: ${LEVEL_BANK["LEVEL 1 — BASE"].focus.replace(/^Focus:\s*/i,"")}`,
-    questions: LEVEL_BANK["LEVEL 1 — BASE"].questions.map((q, i) => ({
-      key: `q${i + 1}`,
-      prompt: q.prompt,
-      options: q.options
-    }))
+    description: `${LEVEL_BANK["LEVEL 1 — BASE"].axis}  Focus: ${LEVEL_BANK["LEVEL 1 — BASE"].focus.replace(/^Focus:\s*/i, "")}`,
+    questions: LEVEL_BANK["LEVEL 1 — BASE"].questions.map((q, i) => ({ key: `q${i+1}`, prompt: q.prompt, options: q.options }))
   },
   {
-    id: "LEVEL_2_ARCHITECT",
+    id: "LEVEL_2_INTERMEDIATE",
     label: "Level 2 — The Architect",
-    description: `${LEVEL_BANK["LEVEL 2 — INTERMEDIATE"].axis}  Focus: ${LEVEL_BANK["LEVEL 2 — INTERMEDIATE"].focus.replace(/^Focus:\s*/i,"")}`,
-    questions: LEVEL_BANK["LEVEL 2 — INTERMEDIATE"].questions.map((q, i) => ({
-      key: `q${i + 1}`,
-      prompt: q.prompt,
-      options: q.options
-    }))
+    description: `${LEVEL_BANK["LEVEL 2 — INTERMEDIATE"].axis}  Focus: ${LEVEL_BANK["LEVEL 2 — INTERMEDIATE"].focus.replace(/^Focus:\s*/i, "")}`,
+    questions: LEVEL_BANK["LEVEL 2 — INTERMEDIATE"].questions.map((q, i) => ({ key: `q${i+1}`, prompt: q.prompt, options: q.options }))
   },
   {
     id: "LEVEL_3_ELITE",
     label: "Level 3 — Elite",
-    description: `${LEVEL_BANK["LEVEL 3 — ELITE"].axis}  Focus: ${LEVEL_BANK["LEVEL 3 — ELITE"].focus.replace(/^Focus:\s*/i,"")}`,
-    questions: LEVEL_BANK["LEVEL 3 — ELITE"].questions.map((q, i) => ({
-      key: `q${i + 1}`,
-      prompt: q.prompt,
-      options: q.options
-    }))
+    description: `${LEVEL_BANK["LEVEL 3 — ELITE"].axis}  Focus: ${LEVEL_BANK["LEVEL 3 — ELITE"].focus.replace(/^Focus:\s*/i, "")}`,
+    questions: LEVEL_BANK["LEVEL 3 — ELITE"].questions.map((q, i) => ({ key: `q${i+1}`, prompt: q.prompt, options: q.options }))
   }
 ];
 
-function renderLevels() {
-  const wrap = document.getElementById("levels");
-  wrap.innerHTML = "";
-  LEVELS.forEach(lvl => {
-    const d = document.createElement("div");
-    d.className = "lvl";
-    d.innerHTML = `<div class="name">${lvl.label}</div><div class="desc">${escapeHtml(lvl.description || "")}</div>`;
-    d.addEventListener("click", () => selectLevel(lvl.id));
-    wrap.appendChild(d);
-  });
-}
-  
-function escapeHtml(s) {
-  return (s||"").replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;"}[c]));
+function setStatus(txt) {
+  document.getElementById("status").textContent = txt;
 }
 
 function getLevel(id) {
@@ -253,27 +218,25 @@ function updateProgress() {
   const lvl = getLevel(activeLevelId);
   if (!lvl) {
     document.getElementById("progress").textContent = "0/0 answered";
-     setStatus("Choose a level");
+    setStatus("Choose a level");
     return;
   }
   const answers = getAnswers(activeLevelId);
   const answered = Object.keys(answers).length;
   document.getElementById("progress").textContent = `${answered}/${lvl.questions.length} answered`;
-  setStatus(answered === lvl.questions.length ? "Ready to finish" : "In progress");
+  setStatus(answered === lvl.questions.length ? "Ready to submit" : "In progress");
 }
 
-function selectLevel(levelId) {
-  activeLevelId = levelId;
-  document.getElementById("levelPicker").classList.add("hidden");
-  document.getElementById("resultsArea").classList.add("hidden");
-  document.getElementById("questionArea").classList.remove("hidden");
-
-  const lvl = getLevel(levelId);
-  document.getElementById("levelTitle").textContent = lvl.label;
-  document.getElementById("levelDesc").textContent = lvl.description || "";
-
-  renderQuestions();
-  updateProgress();
+function renderLevels() {
+  const wrap = document.getElementById("levels");
+  wrap.innerHTML = "";
+  LEVELS.forEach(lvl => {
+    const d = document.createElement("div");
+    d.className = "lvl";
+    d.innerHTML = `<div class="name">${lvl.label}</div><div class="desc">${escapeHtml(lvl.description || "")}</div>`;
+    d.addEventListener("click", () => selectLevel(lvl.id));
+    wrap.appendChild(d);
+  });
 }
 
 function renderQuestions() {
@@ -312,6 +275,20 @@ function renderQuestions() {
   });
 }
 
+function selectLevel(levelId) {
+  activeLevelId = levelId;
+  document.getElementById("levelPicker").classList.add("hidden");
+  document.getElementById("resultsArea").classList.add("hidden");
+  document.getElementById("questionArea").classList.remove("hidden");
+
+  const lvl = getLevel(levelId);
+  document.getElementById("levelTitle").textContent = lvl.label;
+  document.getElementById("levelDesc").textContent = lvl.description || "";
+
+  renderQuestions();
+  updateProgress();
+}
+
 function buildMentorPayload() {
   const lvl = getLevel(activeLevelId);
   const answers = getAnswers(activeLevelId);
@@ -339,29 +316,30 @@ function buildMentorPayload() {
     selections
   };
 
-  // base64url
   const jsonStr = JSON.stringify(payload);
   const b64 = btoa(unescape(encodeURIComponent(jsonStr))).replace(/\+/g,"-").replace(/\//g,"_").replace(/=+$/,"");
   return { ok:true, payload, code: b64 };
 }
 
-function showResults() {
-  const res = buildMentorPayload();
-  if (!res.ok) {
-    alert(res.error);
-    return;
-  }
+function launchEmail(res) {
+  const subject = encodeURIComponent(`AYA Mentor Code — ${res.payload.level.label}`);
+  const lines = [
+    `Level: ${res.payload.level.label}`,
+    `Generated: ${res.payload.createdAt}`,
+    "",
+    "Mentor Code:",
+    res.code
+  ];
+  const body = encodeURIComponent(lines.join("\n"));
+  window.location.href = `mailto:${SUBMIT_EMAIL}?subject=${subject}&body=${body}`;
+}
 
-  document.getElementById("questionArea").classList.add("hidden");
-  document.getElementById("levelPicker").classList.add("hidden");
-  document.getElementById("resultsArea").classList.remove("hidden");
-
-  // brief summary
+function renderSummary(res) {
   const brief = document.getElementById("brief");
   brief.innerHTML = "";
-  const p1 = document.createElement("div");
-  p1.innerHTML = `<strong>${escapeHtml(res.payload.level.label)}</strong> — completed.`;
-  brief.appendChild(p1);
+  const header = document.createElement("div");
+  header.innerHTML = `<strong>${escapeHtml(res.payload.level.label)}</strong> — completed.`;
+  brief.appendChild(header);
 
   const ul = document.createElement("ul");
   ul.className = "muted";
@@ -372,22 +350,24 @@ function showResults() {
     ul.appendChild(li);
   });
   brief.appendChild(ul);
-
-  const codeOut = document.getElementById("codeOut");
-  codeOut.value = res.code;
-
-  // Mentor link with code prefill
-  const mentorLink = document.getElementById("mentorLink");
-  mentorLink.href = `mentor.html#code=${encodeURIComponent(res.code)}`;
 }
 
-document.getElementById("finishBtn").addEventListener("click", showResults);
+function handleSubmit() {
+  const res = buildMentorPayload();
+  if (!res.ok) {
+    alert(res.error);
+    return;
+  }
 
-document.getElementById("copyBtn").addEventListener("click", () => {
-  const t = document.getElementById("codeOut");
-  t.select();
-  document.execCommand("copy");
-});
+  document.getElementById("questionArea").classList.add("hidden");
+  document.getElementById("levelPicker").classList.add("hidden");
+  document.getElementById("resultsArea").classList.remove("hidden");
+
+  renderSummary(res);
+  launchEmail(res);
+}
+
+document.getElementById("submitBtn").addEventListener("click", handleSubmit);
 
 document.getElementById("resetBtn").addEventListener("click", () => {
   if (!activeLevelId) return;
@@ -420,5 +400,3 @@ document.getElementById("changeLevelBtn").addEventListener("click", () => {
 renderLevels();
 updateProgress();
 </script>
-</body>
-</html>
