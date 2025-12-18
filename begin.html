@@ -1,8 +1,9 @@
 <!DOCTYPE html>
+
 <html lang="en">
 <head>
-<meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width,initial-scale=1" />
+<meta charset="utf-8"/>
+<meta content="width=device-width,initial-scale=1" name="viewport"/>
 <title>AYA Questionnaire • Authentic Nelson</title>
 <style>
   :root{
@@ -90,49 +91,45 @@
     .prompt{font-size:15px}
     .bar{gap:8px}
   }
+
+
+  .modalFoot{display:flex;gap:10px;align-items:center;justify-content:flex-start;margin-top:12px;flex-wrap:wrap;}
+  .modalFoot .muted{margin-left:auto;font-size:12px;color:var(--muted);}
 </style>
 </head>
 <body>
 <div class="wrap">
-  <div class="bar">
-    <div class="left" id="progress">0/10 answered</div>
-    <div class="pill" id="statusPill">In progress</div>
-
-    <button class="ghost" id="resetBtn" type="button">Reset</button>
-    <button class="primary" id="finishBtn" type="button" disabled>Finish</button>
-
-    <select id="exportFmt" class="hidden">
-      <option value="txt">Export Summary .txt</option>
-      <option value="doc">Export Summary .doc</option>
-      <option value="pdf">Export Summary PDF</option>
-    </select>
-    <button id="exportBtn" class="hidden" type="button">Export</button>
-
-    <button class="danger" id="wipeBtn" type="button">Wipe Device Save</button>
-  </div>
-
-  <div id="app" class="grid"></div>
+<div class="bar">
+<div class="left" id="progress">0/10 answered</div>
+<div class="pill" id="statusPill">In progress</div>
+<button class="ghost" id="resetBtn" type="button">Reset</button>
+<button class="primary" disabled="" id="finishBtn" type="button">Finish</button>
+<select class="hidden" id="exportFmt">
+<option value="txt">Export Summary .txt</option>
+<option value="doc">Export Summary .doc</option>
+<option value="pdf">Export Summary PDF</option>
+</select>
+<button class="hidden" id="exportBtn" type="button">Export</button>
+<button class="danger" id="wipeBtn" type="button">Wipe Device Save</button>
 </div>
-
-<div class="modalBack" id="summaryBack" role="dialog" aria-modal="true">
-  <div class="modal">
-    <div class="modalHead">
-      <div class="modalTitle">Summary</div>
-      <button class="ghost" id="copyCodeBtn" type="button">Copy Result Code</button>
-      <button class="ghost" id="closeSummary" type="button">Close</button>
-    </div>
-
-    <pre id="summaryText"></pre>
-
-    <div style="height:10px"></div>
-    <div class="pill" style="display:inline-flex;gap:8px;align-items:center;">
+<div class="grid" id="app"></div>
+</div>
+<div aria-modal="true" class="modalBack" id="summaryBack" role="dialog">
+<div class="modal">
+<div class="modalHead">
+<div class="modalTitle">Summary</div>
+<button class="ghost" id="copyCodeBtn" type="button">Copy Result Code</button>
+<button class="ghost" id="closeSummary" type="button">Close</button>
+</div>
+<pre id="summaryText"></pre>
+<div style="height:10px"></div>
+<div class="pill" style="display:inline-flex;gap:8px;align-items:center;">
       Result Code
     </div>
-    <div style="height:10px"></div>
-    <textarea id="resultCode" readonly></textarea>
-  </div>
+<div style="height:10px"></div>
+<textarea id="resultCode" readonly=""></textarea>
+<div class="modalFoot"><button class="primary" id="submitBtn" type="button">Submit</button><button class="ghost" id="againBtn" type="button">Choose Another Level</button><div class="muted" id="submitStatus"></div></div></div>
 </div>
-
 <script>
 /* ============================================================
 AYA TAKER (3 Levels)
@@ -145,6 +142,12 @@ AYA TAKER (3 Levels)
 
 const BUILD = "AYA_TAKER_v1.0";
 const STORAGE_KEY = "AYA_TAKER_STATE_V1";
+
+// Optional: ProMAXHub inbound webhook URL (leave empty to disable)
+const PROHUB_WEBHOOK_URL = "";
+// Require email before assessment (recommended if logging to ProMAXHub)
+const REQUIRE_EMAIL = true;
+
 
 const LEVELS = {"LEVEL_1_BASE": [{"key": "q1", "prompt": "When I spoke today, how truthful was I?", "options": ["I knowingly altered, avoided, or distorted the truth to protect comfort, avoid tension, or maintain an image.", "I shared a partial version of the truth, filtering or softening it to manage reactions.", "I told the factual truth, though with hesitation, delay, or internal resistance.", "I spoke the truth clearly and calmly, without manipulation, concealment, or justification."]}, {"key": "q2", "prompt": "Did I withhold anything important to avoid consequences?", "options": ["I intentionally withheld key information to protect myself from discomfort or accountability.", "I minimized, postponed, or partially disclosed what mattered.", "I shared most of what was necessary, though not fully or confidently.", "I shared what was necessary and relevant, even when it created discomfort."]}, {"key": "q3", "prompt": "Was my tone aligned with how I actually felt?", "options": ["My tone was performative and did not reflect my internal state.", "My tone was controlled to fit expectations rather than truth.", "My tone was mostly honest, though restrained.", "My tone accurately reflected my internal state while remaining respectful."]}, {"key": "q4", "prompt": "Did my emotional responses come from sincerity?", "options": ["My response was strategic or designed to influence perception.", "My response was shaped by what felt socially acceptable.", "My response was sincere but limited by caution.", "My response was fully sincere, present, and grounded."]}, {"key": "q5", "prompt": "Was I present as myself or playing a role?", "options": ["I adopted a role to maintain safety, approval, or status.", "I adjusted who I was depending on the environment.", "I showed up mostly as myself, with minor self-editing.", "I showed up fully as myself, without distortion."]}, {"key": "q6", "prompt": "Did my decisions align with my values?", "options": ["I chose convenience over values.", "I compromised my values for short-term ease.", "I honored my values, though it felt uncomfortable.", "I acted in full alignment with my values."]}, {"key": "q7", "prompt": "Did my actions match my words?", "options": ["My actions contradicted what I said.", "My actions partially supported my words.", "My actions aligned, though inconsistently.", "My actions clearly reinforced my words."]}, {"key": "q8", "prompt": "Did I choose what was right for me or easiest to explain?", "options": ["I chose what others would accept.", "I chose what avoided conflict.", "I chose what felt right, with hesitation.", "I chose what was right for me, without apology."]}, {"key": "q9", "prompt": "Where was I today?", "options": ["I noticed clear misalignment between what I felt, said, and did.", "I was honest in facts but not fully genuine or authentic.", "I was genuine internally but inconsistent in action.", "I was aligned—honest, genuine, and authentic."]}, {"key": "q10", "prompt": "Would I respect myself if today repeated?", "options": ["No—repeating today would erode my self-respect.", "Some days yes, some days no.", "Yes, though growth is still required.", "Yes—I would trust and respect that version of myself."]}], "LEVEL_2_INTERMEDIATE": [{"key": "q1", "prompt": "When I spoke today, how aligned was my truth?", "options": ["I distorted or avoided truth to protect identity or outcome.", "I filtered truth to manage acceptance or perception.", "I expressed truth with caution or restraint.", "I expressed truth fully, without distortion or fear."]}, {"key": "q2", "prompt": "What motivated my silence, if any?", "options": ["Self-protection or fear of consequence.", "Image management or timing control.", "Discernment, though influenced by discomfort.", "Integrity and responsibility to truth."]}, {"key": "q3", "prompt": "Did my tone reflect my internal state?", "options": ["No—it was a mask.", "It was regulated for the environment.", "It was mostly congruent, with minor filtering.", "It was fully congruent and emotionally honest."]}, {"key": "q4", "prompt": "Where did my emotional responses originate?", "options": ["Strategy or self-preservation.", "External expectation.", "Sincerity with guarded expression.", "Grounded self-awareness and presence."]}, {"key": "q5", "prompt": "How consistently did I show up as myself?", "options": ["I performed a version of myself.", "I adapted myself to the room.", "I remained myself with boundaries.", "I remained myself without self-editing."]}, {"key": "q6", "prompt": "What governed my decisions?", "options": ["Ease and relief.", "Short-term comfort.", "Values, though with internal resistance.", "Values without compromise."]}, {"key": "q7", "prompt": "How congruent were my actions and words?", "options": ["They were misaligned.", "They were partially aligned.", "They aligned inconsistently.", "They aligned consistently and clearly."]}, {"key": "q8", "prompt": "What guided my choices?", "options": ["Approval and acceptance.", "Conflict avoidance.", "Inner truth with hesitation.", "Inner truth without justification."]}, {"key": "q9", "prompt": "Where did I land today?", "options": ["Fragmented alignment.", "Honesty without genuineness.", "Genuineness without consistency.", "Integrated alignment."]}, {"key": "q10", "prompt": "Would today’s version of me earn my trust?", "options": ["No.", "Occasionally.", "Mostly.", "Fully and consistently."]}], "LEVEL_3_ADVANCED": [{"key": "q1", "prompt": "When truth required courage, how did I respond?", "options": ["I avoided it.", "I diluted it.", "I expressed it carefully.", "I embodied it fully."]}, {"key": "q2", "prompt": "Was silence used as protection or principle?", "options": ["Protection from consequence.", "Preservation of image.", "Discernment with hesitation.", "Integrity rooted in values."]}, {"key": "q3", "prompt": "Did my tone honor my truth?", "options": ["No—masking occurred.", "Partial honesty.", "Mostly congruent.", "Fully congruent and grounded."]}, {"key": "q4", "prompt": "Were my emotions expressed with integrity?", "options": ["They were performative.", "They were externally shaped.", "They were internally honest but guarded.", "They were fully integrated and embodied."]}, {"key": "q5", "prompt": "Did I live as who I am—not who was required?", "options": ["I became who was needed.", "I adjusted to survive.", "I remained myself with limits.", "I remained myself without compromise."]}, {"key": "q6", "prompt": "Were my values non-negotiable today?", "options": ["No—they were conditional.", "Sometimes—they flexed under pressure.", "Mostly—they held with effort.", "Always—they governed my choices."]}, {"key": "q7", "prompt": "Did my actions prove my words?", "options": ["No—they contradicted them.", "In part—but not consistently.", "Inconsistently—but improving.", "Completely and repeatedly."]}, {"key": "q8", "prompt": "Did I choose alignment over explanation?", "options": ["No—explanation came first.", "Occasionally—when safe.", "With hesitation and internal debate.", "Without apology or defense."]}, {"key": "q9", "prompt": "How embodied was my authenticity today?", "options": ["Conceptual only.", "Situational.", "Practiced but not fully lived.", "Fully embodied."]}, {"key": "q10", "prompt": "If today became my identity, would I respect it?", "options": ["No—I would lose trust in myself.", "Sometimes—I would question it.", "Yes—with awareness of growth ahead.", "Yes—with full trust, respect, and ownership."]}]};
 
@@ -192,6 +195,8 @@ function b64urlDecode(code){
 let seed = null;
 let rng = null;
 let levelKey = null;
+  takerEmail = "";
+let takerEmail = "";
 let QUESTIONS = [];
 let ORDER = [];
 let answers = {};            // key -> option text
@@ -216,11 +221,15 @@ const summaryTextEl = document.getElementById("summaryText");
 const resultCodeEl = document.getElementById("resultCode");
 const copyCodeBtn = document.getElementById("copyCodeBtn");
 const closeSummary = document.getElementById("closeSummary");
+const submitBtn = document.getElementById("submitBtn");
+const againBtn = document.getElementById("againBtn");
+const submitStatus = document.getElementById("submitStatus");
 
 // ---- Persistence ----
 function saveState(){
   const state = {
-    seed, levelKey, answers, firstSeenAt, lastAnswerAt, timeSpentMs, chosenPos,
+    seed, levelKey,
+    takerEmail, takerEmail, answers, firstSeenAt, lastAnswerAt, timeSpentMs, chosenPos,
     answerChanges, selectionLog, startedAt, finishedAt
   };
   localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
@@ -263,17 +272,53 @@ Each level matures the language, not the judgment.
 Pick the level that matches where you are today.
       </pre>
       <div style="height:12px"></div>
-      <div class="row" style="gap:10px">
-        <button class="primary" data-k="LEVEL_1_BASE">Level 1 — Base</button>
-        <button class="primary" data-k="LEVEL_2_INTERMEDIATE">Level 2 — Intermediate</button>
-        <button class="primary" data-k="LEVEL_3_ADVANCED">Level 3 — Advanced</button>
+      <div class="field">
+        <label class="muted" style="display:block;margin-bottom:6px;">Email</label>
+        <input id="gateEmail" type="email" placeholder="you@domain.com" style="width:100%;padding:10px;border-radius:10px;border:1px solid var(--edge);background:var(--panel);color:var(--text);" value="${takerEmail || ""}"/>
+        <div id="gateEmailErr" class="muted" style="margin-top:6px;display:none;">Enter a valid email to continue.</div>
       </div>
+      <div style="height:12px"></div>
+
+      <div class="card" style="padding:12px;">
+        <div style="font-weight:700;">Level I</div>
+        <div class="muted" style="margin-top:4px;">A baseline check of honesty, presence, and personal alignment today.</div>
+        <div style="height:10px"></div>
+        <button class="primary" type="button" data-k="LEVEL_1_BASE" style="width:100%;">Begin Level I</button>
+      </div>
+
       <div style="height:10px"></div>
+      <div class="card" style="padding:12px;">
+        <div style="font-weight:700;">Level II</div>
+        <div class="muted" style="margin-top:4px;">A deeper audit of patterns—where your instincts protect you, and where they betray you.</div>
+        <div style="height:10px"></div>
+        <button class="primary" type="button" data-k="LEVEL_2_DEEP" style="width:100%;">Begin Level II</button>
+      </div>
+
+      <div style="height:10px"></div>
+      <div class="card" style="padding:12px;">
+        <div style="font-weight:700;">Level III</div>
+        <div class="muted" style="margin-top:4px;">A commitment-grade assessment—truth without cushioning, ownership without excuses.</div>
+        <div style="height:10px"></div>
+        <button class="primary" type="button" data-k="LEVEL_3_COMMIT" style="width:100%;">Begin Level III</button>
+      </div>
+
+      <div style="height:12px"></div>
       <div class="pill">A=1 • B=2 • C=3 • D=4</div>
     </div>`;
   document.body.appendChild(back);
   back.querySelectorAll("button[data-k]").forEach(btn=>{
     btn.addEventListener("click", ()=>{
+      const emailEl = back.querySelector("#gateEmail");
+      const errEl = back.querySelector("#gateEmailErr");
+      const emailVal = (emailEl?.value || "").trim();
+      const okEmail = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(emailVal);
+      if(REQUIRE_EMAIL && !okEmail){
+        errEl.style.display = "block";
+        emailEl.focus();
+        return;
+      }
+      errEl.style.display = "none";
+      takerEmail = emailVal;
       levelKey = btn.getAttribute("data-k");
       initForLevel(levelKey);
       saveState();
@@ -475,6 +520,43 @@ resetBtn.addEventListener("click", ()=>{
   render();
 });
 
+
+async function submitResultToProMax({code, payload, summaryText}){
+  const url = (PROHUB_WEBHOOK_URL || "").trim();
+  if(!url){
+    submitStatus.textContent = "No webhook configured.";
+    return false;
+  }
+  const body = {
+    source: "AYA_TAKER",
+    build: BUILD,
+    levelKey,
+    score: payload?.score ?? null,
+    tier: payload?.tier ?? null,
+    takerEmail: payload?.takerEmail ?? null,
+    finishedAt: payload?.telem?.finishedAt ?? Date.now(),
+    resultCode: code,
+    summary: summaryText
+  };
+  try{
+    const res = await fetch(url, {
+      method: "POST",
+      headers: {"Content-Type":"application/json"},
+      body: JSON.stringify(body)
+    });
+    if(!res.ok){
+      submitStatus.textContent = "Submit failed ("+res.status+").";
+      return false;
+    }
+    submitStatus.textContent = "Submitted.";
+    return true;
+  }catch(e){
+    submitStatus.textContent = "Submit failed.";
+    return false;
+  }
+}
+
+
 wipeBtn.addEventListener("click", ()=>{
   if(!confirm("Wipe saved state on this device?")) return;
   wipeSave();
@@ -522,6 +604,39 @@ copyCodeBtn.addEventListener("click", async ()=>{
 const loaded = loadState();
 if(levelKey) initForLevel(levelKey);
 render();
+
+
+submitBtn.addEventListener("click", async ()=>{
+  const code = (resultCodeEl.value || "").trim();
+  if(!code){ alert("No Result Code yet. Click Finish first."); return; }
+  submitBtn.disabled = true;
+  submitStatus.textContent = "Submitting…";
+  const summaryText = (summaryTextEl.textContent || "").trim();
+  const payload = finalizePayload();
+  const ok = await submitResultToProMax({code, payload, summaryText});
+  if(!ok) submitBtn.disabled = false;
+});
+
+againBtn.addEventListener("click", ()=>{
+  if(!(resultCodeEl.value || "").trim()){ alert("Finish this level first."); return; }
+  seed = null;
+  levelKey = null;
+  answers = {};
+  firstSeenAt = {};
+  lastAnswerAt = {};
+  timeSpentMs = {};
+  chosenPos = {};
+  answerChanges = 0;
+  selectionLog = [];
+  startedAt = Date.now();
+  finishedAt = null;
+  summaryTextEl.textContent = "";
+  resultCodeEl.value = "";
+  submitBtn.disabled = false;
+  submitStatus.textContent = "";
+  closeSummary.click();
+  render();
+});
 </script>
 </body>
 </html>
