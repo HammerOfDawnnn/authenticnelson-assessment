@@ -1,0 +1,544 @@
+<!-- =========================================================
+FILE 2: FSM_MENTOR_DECODER.html (COMPACT RESULT CODE SUPPORT)
+- Mentor pastes Result Code from taker file
+- Produces full detailed report
+- Supports BOTH:
+  - New compact payload (v/s/ok/c/ai/t)
+  - Old payload (v/seed/orderKeys/codes/answers/telem)
+========================================================= -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>IBE Companion Mentor Decoder</title>
+<style>
+  :root{
+    --bg:#050506;
+    --panel:rgba(255,255,255,.035);
+    --edge:rgba(255,255,255,.12);
+    --text:#e3e3e6;
+    --muted:rgba(227,227,230,.72);
+    --silver:#c8c8cd;
+    --copper:#b87333;
+    --red:#7a0f16;
+  }
+  body{
+    margin:0;
+    background:
+      radial-gradient(1100px 650px at 20% 0%, rgba(184,115,51,.10), transparent 55%),
+      radial-gradient(900px 600px at 100% 0%, rgba(122,15,22,.10), transparent 50%),
+      var(--bg);
+    color:var(--text);
+    font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+  }
+  .wrap{max-width:980px;margin:0 auto;padding:16px}
+  .card{
+    border:1px solid var(--edge);
+    background:linear-gradient(180deg, rgba(255,255,255,.04), rgba(255,255,255,.02));
+    border-radius:18px;
+    padding:14px;
+    box-shadow: 0 18px 45px rgba(0,0,0,.30);
+  }
+  .row{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+  .pill{
+    font-size:12px;color:var(--muted);
+    border:1px solid rgba(255,255,255,.14);
+    border-radius:999px;padding:6px 10px;background:rgba(255,255,255,.03);
+  }
+  textarea{
+    width:100%;
+    min-height:120px;
+    resize:vertical;
+    background:rgba(0,0,0,.25);
+    border:1px solid rgba(255,255,255,.12);
+    border-radius:18px;
+    color:var(--text);
+    padding:12px;
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    font-size:12.5px;
+    line-height:1.35;
+  }
+  button{
+    appearance:none;
+    border-radius:14px;
+    border:1px solid rgba(255,255,255,.18);
+    background:rgba(255,255,255,.045);
+    color:var(--text);
+    padding:10px 12px;
+    cursor:pointer;
+    font-size:14px;
+  }
+  button.primary{
+    border-color:rgba(184,115,51,.62);
+    background:rgba(184,115,51,.14);
+  }
+  pre{
+    white-space:pre-wrap;
+    background:rgba(0,0,0,.30);
+    border:1px solid rgba(255,255,255,.12);
+    border-radius:18px;
+    padding:14px;
+    margin:14px 0 0;
+    color:var(--text);
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    font-size:12.5px;
+    line-height:1.35;
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="card">
+    <div class="row">
+      <div class="pill">Mentor Decoder</div>
+      <button class="primary" id="decodeBtn" type="button">Decode</button>
+      <button id="copyBtn" type="button">Copy Report</button>
+      <button id="clearBtn" type="button">Clear</button>
+    </div>
+    <div style="height:10px"></div>
+    <textarea id="codeIn" placeholder="Paste Result Code here..."></textarea>
+    <pre id="out"></pre>
+  </div>
+</div>
+
+<script>
+// ------------------------------------------------------------
+// Mentor-side question bank (used to reconstruct text from aIdx)
+// MUST match the taker-side bank exactly.
+// ------------------------------------------------------------
+const QUESTIONS = [
+  { key:"q1", axis:"Isolation Reflex",
+    options:[
+      "Contain it and get razor-focused\u2014solitude sharpens me.",
+      "Channel it into motion\u2014work, tasks, movement, anything.",
+      "Reach out\u2014tell someone the truth instead of drowning alone.",
+      "Dissect it\u2014loop the memory/meaning until it makes sense."
+    ]
+  },
+  { key:"q2", axis:"Emotional Regulation",
+    options:[
+      "Clamp down and stay functional\u2014no leaks.",
+      "Redirect the energy\u2014lift, build, clean, fix.",
+      "Name it out loud\u2014even if it costs pride.",
+      "Translate it into logic\u2014what is this feeling trying to say?"
+    ]
+  },
+  { key:"q3", axis:"Identity Under Pressure",
+    options:[
+      "Double down\u2014hold the line and keep control.",
+      "Shift into performance\u2014do what works and keep it moving.",
+      "Tell the truth about what you need, even if it\u2019s uncomfortable.",
+      "Step back and reframe\u2014who am I becoming through this?"
+    ]
+  },
+  { key:"q4", axis:"Trust Breakdown Pattern",
+    options:[
+      "Close the door\u2014access revoked.",
+      "Move on and stay busy\u2014no time to bleed.",
+      "Confront it directly\u2014clear it or cut it clean.",
+      "Try to understand the pattern\u2014why did it happen, and what does it reveal?"
+    ]
+  },
+  { key:"q5", axis:"Breaking Point Edge",
+    options:[
+      "Get hard on yourself\u2014discipline through consequence.",
+      "Outwork the urge\u2014replace the impulse with action.",
+      "Pull in accountability\u2014say it before it owns you.",
+      "Interrogate the trigger\u2014what need is underneath this?"
+    ]
+  },
+  { key:"q6", axis:"Boundary Enforcement",
+    options:[
+      "Enforce immediately\u2014no debate.",
+      "Create distance through action\u2014remove yourself, change access, move forward.",
+      "State the boundary clearly\u2014explain once, then hold it.",
+      "Analyze what you allowed\u2014what loophole did they walk through?"
+    ]
+  },
+  { key:"q7", axis:"Strength Code",
+    options:[
+      "Maintain control and composure no matter what.",
+      "Show up and execute\u2014do the work even when it hurts.",
+      "Protect and provide\u2014people feel safer because you\u2019re there.",
+      "Live in clarity\u2014see what\u2019s true and act from it."
+    ]
+  },
+  { key:"q8", axis:"Attachment Reflex",
+    options:[
+      "Keep it controlled\u2014let them in slowly, on your terms.",
+      "Keep moving\u2014closeness is fine, but don\u2019t slow my mission.",
+      "Lean in\u2014connection is fuel, not danger.",
+      "Study them\u2014and yourself\u2014before you trust the bond."
+    ]
+  },
+  { key:"q9", axis:"Justice vs Release",
+    options:[
+      "Cut them off\u2014no access, no explanation.",
+      "Convert it into forward motion\u2014build, win, outgrow it.",
+      "Talk it out if possible\u2014close it clean, say the real thing.",
+      "Let it go internally\u2014release the poison without reopening the door."
+    ]
+  },
+  { key:"q10", axis:"Purpose Orientation",
+    options:[
+      "Impose structure\u2014routines, standards, non-negotiables.",
+      "Move\u2014purpose follows momentum.",
+      "Serve someone\u2014helping restores meaning.",
+      "Sit with it\u2014meaning emerges when you listen long enough."
+    ]
+  },
+];
+
+const BY_KEY = Object.fromEntries(QUESTIONS.map(q=>[q.key, q]));
+
+const CODE_LABEL = {
+  A:"Containment / Control",
+  B:"Action / Channeling",
+  C:"Connection / Exposure",
+  D:"Analysis / Meaning-Making"
+};
+const SHADOW_OF = {A:"A",B:"B",C:"A",D:"D"};
+
+function b64urlDecode(code){
+  const b64 = code.trim().replaceAll("-","+").replaceAll("_","/");
+  const pad = (b64.length % 4) ? "=".repeat(4 - (b64.length % 4)) : "";
+  const raw = atob(b64 + pad);
+  const json = decodeURIComponent(escape(raw));
+  return JSON.parse(json);
+}
+
+function mean(arr){
+  if(!arr.length) return 0;
+  return arr.reduce((a,b)=>a+b,0)/arr.length;
+}
+function stdev(arr){
+  if(arr.length<2) return 0;
+  const m = mean(arr);
+  const v = mean(arr.map(x=>(x-m)*(x-m)));
+  return Math.sqrt(v);
+}
+
+// Normalize payload so the rest of the decoder can operate on one shape.
+function normalizePayload(p){
+  const isCompact = !!(p && p.ok && p.t && p.c);
+
+  if(isCompact){
+    const orderKeys = p.ok || [];
+    const codes = p.c || [];
+    const aIdx = p.ai || []; // 0..3 option index
+    const telem = p.t || {};
+
+    // Reconstruct "answers" (key -> option text) for reporting convenience
+    const answers = {};
+    orderKeys.forEach((k,i)=>{
+      const q = BY_KEY[k];
+      const idx = aIdx[i];
+      if(q && Number.isInteger(idx) && idx >= 0 && idx < 4){
+        answers[k] = q.options[idx];
+      }
+    });
+
+    // Rebuild axis order from local bank
+    const orderAxes = orderKeys.map(k => (BY_KEY[k]?.axis || k));
+
+    // Normalize perQ to [{key,pos,ms}]
+    const perQ = (telem.q || []).map((pair,i)=>({
+      key: orderKeys[i] || `q${i+1}`,
+      pos: Array.isArray(pair) ? pair[0] : null,
+      ms: Array.isArray(pair) ? pair[1] : 0
+    }));
+
+    return {
+      v: p.v || "unknown",
+      seed: p.s,
+      orderKeys,
+      orderAxes,
+      answers,
+      codes,
+      telem: {
+        startedAt: telem.sa,
+        finishedAt: telem.fa,
+        totalActiveMs: telem.ta,
+        perQ,
+        answerChanges: telem.ac || 0
+      }
+    };
+  }
+
+  // Legacy shape (your older payload)
+  // Expected: {v, seed, orderKeys, orderAxes?, answers, codes, telem:{perQ, answerChanges, ...}}
+  return {
+    v: p?.v || "unknown",
+    seed: p?.seed,
+    orderKeys: p?.orderKeys || [],
+    orderAxes: p?.orderAxes || (p?.orderKeys || []).map(k => (BY_KEY[k]?.axis || k)),
+    answers: p?.answers || {},
+    codes: p?.codes || [],
+    telem: p?.telem || {}
+  };
+}
+
+function computeIntegrity(telem){
+  const perQ = telem?.perQ || [];
+  const times = perQ.map(x=>Number(x.ms||0)).filter(x=>Number.isFinite(x));
+  const m = mean(times);
+  const sd = stdev(times);
+  const cv = m>0 ? (sd/m) : 0;
+
+  const veryFast650 = times.filter(t=>t<=650).length;
+  const ultraFast350 = times.filter(t=>t<=350).length;
+
+  const posCounts = {1:0,2:0,3:0,4:0};
+  perQ.forEach(x=>{
+    const p = x.pos;
+    if(p===1||p===2||p===3||p===4) posCounts[p]++;
+  });
+
+  const changes = Number(telem?.answerChanges || 0);
+
+  let score = 80;
+  score -= veryFast650 * 3;
+  score -= ultraFast350 * 6;
+  score -= Math.max(0, changes - 2) * 3;
+  if(m < 900) score -= 12;
+  if(m < 600) score -= 12;
+  if(cv > 0.55) score -= 10;
+  if(cv > 0.80) score -= 10;
+
+  const maxPos = Math.max(posCounts[1],posCounts[2],posCounts[3],posCounts[4]);
+  if(maxPos >= 7) score -= 10;
+  if(maxPos >= 9) score -= 10;
+
+  score = Math.max(0, Math.min(100, Math.round(score)));
+  const band = score >= 75 ? "High" : (score >= 50 ? "Medium" : "Low");
+
+  return {
+    signalScore: score,
+    signalBand: band,
+    meanActiveMs: Math.round(m),
+    timingCV: Number(cv.toFixed(2)),
+    answerChanges: changes,
+    veryFast650,
+    ultraFast350,
+    posCounts
+  };
+}
+
+function computePattern(codes){
+  const counts = {A:0,B:0,C:0,D:0};
+  (codes||[]).forEach(c=>{ if(counts[c]!==undefined) counts[c]++; });
+
+  const sorted = Object.entries(counts).sort((a,b)=>b[1]-a[1]);
+  const primary = sorted[0][0];
+  const secondary = sorted[1][0];
+  const shadow = SHADOW_OF[primary] || "C";
+
+  const groupName = (p,s)=>{
+    const pair = `${p}${s}`;
+    const map = {
+      "AB":"The Disciplined Engine",
+      "AC":"The Protector",
+      "AD":"The Architect",
+      "BA":"The Hard Reset",
+      "BC":"The Rally Point",
+      "BD":"The Strategist",
+      "CA":"The Guarded Truth",
+      "CB":"The Workhorse Heart",
+      "CD":"The Witness",
+      "DA":"The Iron Philosopher",
+      "DB":"The Quiet Builder",
+      "DC":"The Truth Teller",
+    };
+    return map[pair] || `${CODE_LABEL[p]} / ${CODE_LABEL[s]}`;
+  };
+
+  const growth = {
+    A:"Counterweight: add softness without losing standard. Choose your grip.",
+    B:"Counterweight: stop sprinting—slow down enough to feel, then act clean.",
+    C:"Counterweight: build self-trust so you don’t outsource regulation.",
+    D:"Counterweight: timebox thinking—convert insight into one concrete move."
+  }[primary] || "Counterweight: pick one small adjustment and repeat it for a week.";
+
+
+  const watch = {
+    A:"Watch for: shutdown, rigidity, and control-as-protection.",
+    B:"Watch for: overwork-as-avoidance and burnout cycles.",
+    C:"Watch for: attachment panic, reassurance seeking, and self-erasure.",
+    D:"Watch for: rumination and analysis-as-delay."
+  }[primary] || "Watch for: drift under load.";
+
+
+  return {
+    counts, primary, secondary, shadow,
+    group: groupName(primary,secondary),
+    growth, watch
+  };
+}
+
+function inferredMaskShift(telem, codes){
+  const perQ = telem?.perQ || [];
+  const items = perQ.map((x,i)=>({
+    i, ms:Number(x.ms||0), code:(codes||[])[i] || null
+  })).filter(x=>x.code);
+
+  if(items.length < 6){
+    return { available:false, note:"Insufficient data to infer mask shift." };
+  }
+
+  const sortedByTime = items.slice().sort((a,b)=>a.ms-b.ms);
+  const half = Math.floor(sortedByTime.length/2);
+  const fast = sortedByTime.slice(0, half);
+  const slow = sortedByTime.slice(half);
+
+  const tally = (arr)=>{
+    const c={A:0,B:0,C:0,D:0};
+    arr.forEach(x=>{ if(c[x.code]!==undefined) c[x.code]++; });
+    const top = Object.entries(c).sort((a,b)=>b[1]-a[1])[0][0];
+    return {counts:c, top};
+  };
+
+  const f = tally(fast);
+  const s = tally(slow);
+
+  const shift = (f.top === s.top) ? 0 : 1;
+
+  return {
+    available:true,
+    fastTop:f.top, slowTop:s.top,
+    shiftFlag: shift ? "Shift detected" : "No strong shift",
+    note: shift
+      ? "Faster answers indicate one default posture; slower answers indicate another under deliberation."
+      : "Fast vs slow answers reinforce the same dominant posture."
+  };
+}
+
+function buildMentorReport(payloadRaw){
+  const payload = normalizePayload(payloadRaw);
+  const ts = new Date().toLocaleString();
+
+  const integrity = computeIntegrity(payload?.telem || {});
+  const pattern = computePattern(payload?.codes || []);
+  const mask = inferredMaskShift(payload?.telem || {}, payload?.codes || []);
+
+  const pos = integrity.posCounts;
+  const posLine = `1:${pos[1]}  2:${pos[2]}  3:${pos[3]}  4:${pos[4]}`;
+  const countsLine = `A:${pattern.counts.A}  B:${pattern.counts.B}  C:${pattern.counts.C}  D:${pattern.counts.D}`;
+
+  const header = [
+    "MENTOR REVIEW",
+    `Build: ${payload?.v || "unknown"}`,
+    `Generated: ${ts}`,
+    `Seed: ${String(payload?.seed ?? "").toUpperCase()}`,
+    ""
+  ].join("\n");
+
+  const signalBlock = [
+    "RESPONSE INTEGRITY / ATTENTION SIGNAL",
+    `- Signal strength: ${integrity.signalBand} (${integrity.signalScore}/100)`,
+    `- Mean active time: ${integrity.meanActiveMs} ms`,
+    `- Timing variance (CV): ${integrity.timingCV}`,
+    `- Answer changes: ${integrity.answerChanges}`,
+    `- Very fast (<=650ms): ${integrity.veryFast650}   Ultra fast (<=350ms): ${integrity.ultraFast350}`,
+    `- Option position counts: ${posLine}`,
+    ""
+  ].join("\n");
+
+  const patternBlock = [
+    "PATTERN SUMMARY",
+    `- Group: ${pattern.group}`,
+    `- Pattern mix: ${countsLine}`,
+    `- Primary: ${pattern.primary} (${CODE_LABEL[pattern.primary]})`,
+    `- Secondary: ${pattern.secondary} (${CODE_LABEL[pattern.secondary]})`,
+    `- Likely drift under load: ${pattern.shadow} (${CODE_LABEL[pattern.shadow]})`,
+    "",
+    "MENTOR NOTES",
+    `- ${pattern.watch}`,
+    `- ${pattern.growth}`,
+    ""
+  ].join("\n");
+
+  const maskBlock = [
+    "MASK SHIFT (SINGLE-PASS INFERRED)",
+    mask.available
+      ? `- Fast-half dominant: ${mask.fastTop} (${CODE_LABEL[mask.fastTop]})`
+      : "- Fast-half dominant: N/A",
+    mask.available
+      ? `- Slow-half dominant: ${mask.slowTop} (${CODE_LABEL[mask.slowTop]})`
+      : "- Slow-half dominant: N/A",
+    mask.available ? `- Indicator: ${mask.shiftFlag}` : "- Indicator: N/A",
+    `- Note: ${mask.note}`,
+    "  (Directional signal—use it to guide conversation, not conclusions.)",
+    ""
+  ].join("\n");
+
+  const axisBlockLines = [];
+  axisBlockLines.push("AXIS BREAKDOWN (SESSION ORDER)");
+  const codes = payload?.codes || [];
+  const orderKeys = payload?.orderKeys || [];
+  const orderAxes = payload?.orderAxes || [];
+  const perQ = payload?.telem?.perQ || [];
+
+  const maxLen = Math.max(codes.length, orderKeys.length, orderAxes.length, perQ.length);
+  for(let i=0;i<maxLen; i++){
+    const key = orderKeys[i] || `q${i+1}`;
+    const axis = orderAxes[i] || (BY_KEY[key]?.axis || key);
+    const c = codes[i] || "?";
+    const ms = perQ[i]?.ms ?? null;
+    const posSel = perQ[i]?.pos ?? null;
+
+    axisBlockLines.push(
+      `- Q${i+1} (${axis} / ${key}): ${c} (${CODE_LABEL[c] || "—"})  | pos=${posSel ?? "?"}  | time=${ms ?? "?"}ms`
+    );
+  }
+  axisBlockLines.push("");
+
+  const sel = payload?.answers || {};
+  const selLines = ["RAW SELECTIONS (KEY -> TEXT)"];
+  (orderKeys.length ? orderKeys : Object.keys(sel)).forEach(k=>{
+    if(sel[k]) selLines.push(`- ${k}: ${sel[k]}`);
+  });
+  selLines.push("");
+
+  return [
+    header,
+    signalBlock,
+    patternBlock,
+    maskBlock,
+    axisBlockLines.join("\n"),
+    selLines.join("\n")
+  ].join("\n");
+}
+
+const codeIn = document.getElementById("codeIn");
+const out = document.getElementById("out");
+
+document.getElementById("decodeBtn").addEventListener("click", ()=>{
+  const code = (codeIn.value||"").trim();
+  if(!code){ out.textContent = "Paste a Result Code first."; return; }
+  try{
+    const payload = b64urlDecode(code);
+    out.textContent = buildMentorReport(payload);
+  }catch(e){
+    out.textContent = "Could not decode. Make sure you pasted the full Result Code.";
+  }
+});
+
+document.getElementById("copyBtn").addEventListener("click", async ()=>{
+  const t = out.textContent || "";
+  if(!t){ alert("Nothing to copy."); return; }
+  try{
+    await navigator.clipboard.writeText(t);
+    alert("Copied.");
+  }catch(e){
+    prompt("Copy this:", t);
+  }
+});
+
+document.getElementById("clearBtn").addEventListener("click", ()=>{
+  codeIn.value = "";
+  out.textContent = "";
+});
+</script>
+</body>
+</html>
