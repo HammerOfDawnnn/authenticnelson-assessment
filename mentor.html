@@ -1,0 +1,116 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>AYA Questionnaire — Mentor</title>
+<style>
+  :root{
+    --bg:#070707; --panel:rgba(255,255,255,.05); --edge:rgba(255,255,255,.12);
+    --text:#e8e8e8; --muted:#b8b8b8; --accent:#b87333;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--text);font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;}
+  .wrap{max-width:980px;margin:0 auto;padding:28px 18px 80px;}
+  .card{border:1px solid var(--edge);background:var(--panel);border-radius:18px;padding:18px;margin:14px 0;}
+  .btn{border:1px solid var(--edge);background:rgba(255,255,255,.04);color:var(--text);padding:10px 14px;border-radius:12px;cursor:pointer;}
+  .btn:hover{border-color:rgba(255,255,255,.25)}
+  .codebox{width:100%;min-height:110px;border-radius:14px;border:1px solid var(--edge);background:rgba(0,0,0,.25);color:var(--text);padding:12px;font-family:ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,monospace;}
+  .muted{color:var(--muted)}
+  .q{padding:14px;border-radius:16px;border:1px solid var(--edge);background:rgba(0,0,0,.15);margin:12px 0;}
+  .q h3{margin:0 0 8px;font-size:16px;}
+  .hr{height:1px;background:rgba(255,255,255,.08);margin:16px 0}
+  .row{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1 style="margin:0 0 8px;">Mentor Review</h1>
+  <div class="muted">Paste the mentor code. This page decodes it and shows the taker’s selections.</div>
+
+  <div class="card">
+    <div style="font-weight:800;margin-bottom:8px;">Mentor Code</div>
+    <textarea id="codeIn" class="codebox" placeholder="Paste code here..."></textarea>
+    <div class="row" style="margin-top:10px;">
+      <button class="btn" id="decodeBtn">Decode</button>
+      <button class="btn" id="clearBtn">Clear</button>
+    </div>
+    <div id="err" class="muted" style="margin-top:10px;"></div>
+  </div>
+
+  <div id="out" class="card" style="display:none;"></div>
+</div>
+
+<script>
+function b64urlToUtf8(b64url){
+  const pad = '='.repeat((4 - (b64url.length % 4)) % 4);
+  const b64 = (b64url + pad).replace(/-/g,'+').replace(/_/g,'/');
+  const bin = atob(b64);
+  const bytes = Uint8Array.from(bin, c => c.charCodeAt(0));
+  const dec = new TextDecoder("utf-8");
+  return dec.decode(bytes);
+}
+
+function render(payload){
+  const out = document.getElementById("out");
+  out.style.display = "block";
+  out.innerHTML = "";
+
+  const hdr = document.createElement("div");
+  hdr.innerHTML = `<div style="font-weight:900;font-size:18px;">${payload.level.label}</div>
+                   <div class="muted" style="margin-top:4px;">Generated: ${payload.createdAt}</div>`;
+  out.appendChild(hdr);
+
+  const hr = document.createElement("div"); hr.className="hr"; out.appendChild(hr);
+
+  payload.selections.forEach((s, i) => {
+    const q = document.createElement("div");
+    q.className="q";
+    q.innerHTML = `<h3>${i+1}. ${s.prompt}</h3>
+                   <div><strong>${s.optionLetter}</strong> — ${s.optionText}</div>`;
+    out.appendChild(q);
+  });
+
+  const note = document.createElement("div");
+  note.className="muted";
+  note.style.marginTop="10px";
+  note.textContent = "Use this as a conversation map. The point isn’t judgment — it’s clarity.";
+  out.appendChild(note);
+}
+
+function decode(){
+  const code = document.getElementById("codeIn").value.trim();
+  document.getElementById("err").textContent = "";
+  document.getElementById("out").style.display = "none";
+
+  if(!code){ document.getElementById("err").textContent = "Paste a code first."; return; }
+
+  try{
+    const json = b64urlToUtf8(code);
+    const payload = JSON.parse(json);
+    if(!payload || !payload.selections){ throw new Error("Bad payload"); }
+    render(payload);
+  }catch(e){
+    document.getElementById("err").textContent = "Could not decode that code. Make sure you copied it fully.";
+  }
+}
+
+document.getElementById("decodeBtn").addEventListener("click", decode);
+document.getElementById("clearBtn").addEventListener("click", () => {
+  document.getElementById("codeIn").value = "";
+  document.getElementById("err").textContent = "";
+  document.getElementById("out").style.display = "none";
+});
+
+// Prefill from hash
+(function(){
+  const h = location.hash || "";
+  const m = h.match(/code=([^&]+)/);
+  if(m){
+    document.getElementById("codeIn").value = decodeURIComponent(m[1]);
+    decode();
+  }
+})();
+</script>
+</body>
+</html>
